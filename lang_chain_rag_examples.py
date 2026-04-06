@@ -642,6 +642,82 @@ def langchain_pgvector_search(documents: list, query: str, top_k: int = 3) -> li
                   collection_name="lc_documents",
                   connection_string=os.environ.get("PG_CONNECTION_STRING"),
             )
+# ─────────────────────────────────────────────────────────────
+# SECTION D — RAG Agents  (Tasks 14 – 17)
+# ─────────────────────────────────────────────────────────────
+
+# ─────────────────────────────────────────────────────────────
+# TASK 14 — Basic RAG Pipeline
+# ─────────────────────────────────────────────────────────────
+"""
+TASK 14: Basic RAG Pipeline
+------------------------------
+Build an end-to-end RAG chain that:
+  1. Loads documents from a list of strings.
+  2. Stores them in a PGVector vectorstore.
+  3. Creates a retriever (top-3 results).
+  4. Passes retrieved context + question to ChatOpenAI.
+  5. Returns the final answer string.
+
+Use the LCEL pattern:
+  chain = (
+      {"context": retriever | format_docs, "question": RunnablePassthrough()}
+      | prompt
+      | llm
+      | StrOutputParser()
+  )
+
+HINT:
+  def format_docs(docs):
+      return "\n\n".join(doc.page_content for doc in docs)
+
+  prompt = ChatPromptTemplate.from_template(
+      "Answer using only this context:\n{context}\n\nQuestion: {question}"
+  )
+"""
+
+RAG_DOCUMENTS = [
+    "LangChain v0.2 introduced LangChain Expression Language (LCEL) for composing chains.",
+    "pgvector is a PostgreSQL extension supporting L2, inner product, and cosine distance.",
+    "LangSmith provides tracing for every LLM call including token counts and latency.",
+    "RAG stands for Retrieval-Augmented Generation and improves factual accuracy of LLMs.",
+    "OpenAI's text-embedding-3-small produces 1536-dimensional embedding vectors.",
+    "LangChain agents use a ReAct loop: Thought → Action → Observation → Answer.",
+]
+
+def basic_rag_pipeline(documents: list, question: str) -> str:
+    """Indexes documents and answers the question using RAG."""
+    # ── YOUR CODE BELOW ──────────────────────────────────────
+    
+    embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+    vectorstore = PGVector.from_texts(
+        texts=documents,
+        embedding=embeddings,
+        connection_string=os.environ.get("PG_CONNECTION_STRING"),
+        collection_name="lc_documents"
+    )
+
+    retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
+
+    def format_docs(docs):
+        return "\n\n".join(doc.page_content for doc in docs)
+
+    prompt = ChatPromptTemplate.from_template(
+        "Answer using only this context:\n{context}\n\nQuestion: {question}"
+    )
+    
+    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+
+    chain = (
+        {"context": retriever | format_docs, "question": RunnablePassthrough()}
+        | prompt
+        | llm
+        | StrOutputParser()
+    )
+
+    return chain.invoke(question)
+
+    # ── END OF YOUR CODE ─────────────────────────────────────
 
     results = store.similarity_search_with_score(query, k=top_k)
     return results
