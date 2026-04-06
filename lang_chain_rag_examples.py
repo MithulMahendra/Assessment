@@ -907,3 +907,69 @@ def conversational_rag(documents: list) -> list:
     # ── END OF YOUR CODE ─────────────────────────────────────
 
 
+# ─────────────────────────────────────────────────────────────
+# TASK 17 — RAG Agent (Tool-based Retrieval)
+# ─────────────────────────────────────────────────────────────
+"""
+TASK 17: RAG Agent with Retriever as Tool
+-------------------------------------------
+Convert the vector store retriever into a LangChain Tool,
+then wrap it in a ReAct agent.  This lets the agent DECIDE
+when to retrieve rather than always retrieving.
+
+Steps:
+  1. Build a PGVector store from RAG_DOCUMENTS.
+  2. Wrap the retriever in a Tool named "knowledge_base".
+  3. Create a ReAct agent with that tool.
+  4. Ask: "What distance metrics does pgvector support?"
+  5. Return the final answer string.
+
+HINT:
+  from langchain.tools.retriever import create_retriever_tool
+  retriever_tool = create_retriever_tool(
+      retriever,
+      name="knowledge_base",
+      description="Search the knowledge base for technical info."
+  )
+  Then pass [retriever_tool] to create_react_agent.
+"""
+
+def rag_agent(question: str) -> str:
+    """Uses a ReAct agent with a retriever tool to answer the question."""
+    # ── YOUR CODE BELOW ──────────────────────────────────────
+    
+    embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+    vectorstore = PGVector.from_texts(
+        texts=RAG_DOCUMENTS,
+        embedding=embeddings,
+        connection_string=os.environ.get("PG_CONNECTION_STRING"),
+        collection_name="lc_documents"
+    )
+    
+    retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
+
+    retriever_tool = create_retriever_tool(
+        retriever,
+        name="knowledge_base",
+        description="Search the knowledge base for technical info. Always use this tool when you need to answer questions about pgvector, LangChain, or LangSmith."
+    )
+    
+    tools = [retriever_tool]
+
+    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+    
+    prompt = hub.pull("hwchase17/react")
+    
+    agent = create_react_agent(llm, tools, prompt)
+    
+    agent_executor = AgentExecutor(
+        agent=agent, 
+        tools=tools, 
+        verbose=True, 
+        handle_parsing_errors=True
+    )
+
+    response = agent_executor.invoke({"input": question})
+    
+    return response["output"]
+    # ── END OF YOUR CODE ─────────────────────────────────────
