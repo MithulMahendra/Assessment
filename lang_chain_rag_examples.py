@@ -595,3 +595,56 @@ def filtered_search(query: str, source_filter: str, top_k: int = 3) -> list:
     return results
 
     # ── END OF YOUR CODE ─────────────────────────────────────
+
+
+# ─────────────────────────────────────────────────────────────
+# TASK 13 — LangChain PGVector VectorStore Integration
+# ─────────────────────────────────────────────────────────────
+"""
+TASK 13: LangChain PGVector VectorStore
+-----------------------------------------
+Use LangChain's built-in PGVector vectorstore to:
+  1. Create a PGVector store from the document list in Task 10.
+  2. Run a similarity_search_with_score for a query.
+  3. Return a list of (Document, score) tuples.
+
+Use collection_name="lc_documents".
+
+HINT:
+  from langchain_community.vectorstores import PGVector
+  from langchain_core.documents import Document
+
+  docs = [Document(page_content=c, metadata=m) for c, m in documents]
+
+  store = PGVector.from_documents(
+      documents=docs,
+      embedding=embeddings,
+      collection_name="lc_documents",
+      connection_string=os.environ["PG_CONNECTION_STRING"],
+  )
+  results = store.similarity_search_with_score(query, k=top_k)
+"""
+
+def langchain_pgvector_search(documents: list, query: str, top_k: int = 3) -> list:
+    """Creates a PGVector store and runs a scored similarity search."""
+    # ── YOUR CODE BELOW ──────────────────────────────────────
+
+    if not documents:
+      return []
+
+    docs = [Document(page_content=c, metadata=m) for c, m in documents]
+        
+    embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+        
+    store = PGVector.from_documents(
+                  documents=docs,
+                  embedding=embeddings,
+                  collection_name="lc_documents",
+                  connection_string=os.environ.get("PG_CONNECTION_STRING"),
+            )
+
+    results = store.similarity_search_with_score(query, k=top_k)
+    return results
+
+    # ── END OF YOUR CODE ─────────────────────────────────────
+
