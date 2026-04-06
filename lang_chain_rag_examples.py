@@ -642,6 +642,11 @@ def langchain_pgvector_search(documents: list, query: str, top_k: int = 3) -> li
                   collection_name="lc_documents",
                   connection_string=os.environ.get("PG_CONNECTION_STRING"),
             )
+    results = store.similarity_search_with_score(query, k=top_k)
+    return results
+
+    # ── END OF YOUR CODE ─────────────────────────────────────
+  
 # ─────────────────────────────────────────────────────────────
 # SECTION D — RAG Agents  (Tasks 14 – 17)
 # ─────────────────────────────────────────────────────────────
@@ -719,8 +724,85 @@ def basic_rag_pipeline(documents: list, question: str) -> str:
 
     # ── END OF YOUR CODE ─────────────────────────────────────
 
-    results = store.similarity_search_with_score(query, k=top_k)
-    return results
+
+# ─────────────────────────────────────────────────────────────
+# TASK 15 — RAG with Source Attribution
+# ─────────────────────────────────────────────────────────────
+"""
+TASK 15: RAG with Source Attribution
+---------------------------------------
+Extend the RAG pipeline to also return the source documents
+used to generate the answer.  Return a dict:
+  {
+    "answer" : str,
+    "sources": [{"content": str, "score": float}, ...]
+  }
+
+HINT:
+  Use RunnableParallel to run retrieval and generation
+  in parallel, or retrieve docs first and pass them to both
+  the formatter and the chain:
+
+  from langchain_core.runnables import RunnableParallel, RunnablePassthrough
+
+  retrieval_chain = RunnableParallel(
+      {"context": retriever, "question": RunnablePassthrough()}
+  )
+  # Then use the context in both the answer chain and as sources.
+"""
+
+def rag_with_sources(documents: list, question: str) -> dict:
+    """Returns the answer AND the source documents used."""
+    # ── YOUR CODE BELOW ──────────────────────────────────────
+
+    embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+    vectorstore = PGVector.from_texts(
+        texts=documents,
+        embedding=embeddings,
+        connection_string=os.environ.get("PG_CONNECTION_STRING"),
+        collection_name="lc_documents"
+    )
+
+    def retrieve_with_scores(query: str):
+        return vectorstore.similarity_search_with_score(query, k=3)
+
+    def format_docs(docs_and_scores):
+        return "\n\n".join(doc.page_content for doc, score in docs_and_scores)
+
+    prompt = ChatPromptTemplate.from_template(
+        "Answer using only this context:\n{context}\n\nQuestion: {question}"
+    )
+    
+    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+
+    retrieval_step = RunnableParallel(
+        docs_and_scores=retrieve_with_scores,
+        question=RunnablePassthrough()
+    )
+
+    generation_step = (
+        {
+            "context": lambda x: format_docs(x["docs_and_scores"]),
+            "question": lambda x: x["question"]
+        }
+        | prompt
+        | llm
+        | StrOutputParser()
+    )
+
+    rag_chain = retrieval_step.assign(answer=generation_step)
+
+    response = rag_chain.invoke(question)
+
+    sources = [
+        {"content": doc.page_content, "score": float(score)} 
+        for doc, score in response["docs_and_scores"]
+    ]
+
+    return {
+        "answer": response["answer"],
+        "sources": sources
+    }
 
     # ── END OF YOUR CODE ─────────────────────────────────────
 
