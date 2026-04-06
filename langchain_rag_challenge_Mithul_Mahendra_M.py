@@ -55,9 +55,9 @@ from langchain import hub
 from langchain.agents import create_react_agent, AgentExecutor
 from langchain_community.vectorstores import PGVector
 from langchain_core.documents import Document
-from langchain.chains import create_history_aware_retriever, create_retrieval_chain
-from langchain.tools.retriever import create_retriever_tool
-from langchain.chains.combine_documents import create_stuff_documents_chain
+from langchain_classic.chains import create_history_aware_retriever, create_retrieval_chain
+from langchain_core.tools.retriever import create_retriever_tool
+from langchain_classic.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.messages import HumanMessage, AIMessage
 
 load_dotenv()
